@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تسجيل الدخول</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f4f4f4;
+        }
+        #login-container, #main-container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            margin: 0 0 10px;
+        }
+        label {
+            display: block;
+            margin: 10px 0 5px;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 15px;
+            border: none;
+            background-color: #007bff;
+            color: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div id="login-container">
+        <h1>تسجيل الدخول أو إنشاء حساب</h1>
+        <div id="login-form">
+            <h2>تسجيل الدخول</h2>
+            <form id="login-form-element">
+                <label for="login-username">اسم المستخدم:</label>
+                <input type="text" id="login-username" name="username" required>
+                <label for="login-password">كلمة المرور:</label>
+                <input type="password" id="login-password" name="password" required>
+                <button type="button" onclick="login()">تسجيل الدخول</button>
+            </form>
+            <p>ليس لديك حساب؟ <button onclick="showSignupForm()">إنشاء حساب</button></p>
+        </div>
+        <div id="signup-form" style="display: none;">
+            <h2>إنشاء حساب جديد</h2>
+            <form id="signup-form-element">
+                <label for="signup-firstname">الاسم الأول:</label>
+                <input type="text" id="signup-firstname" name="firstname" required>
+                <label for="signup-lastname">اللقب:</label>
+                <input type="text" id="signup-lastname" name="lastname" required>
+                <label for="signup-username">اسم المستخدم:</label>
+                <input type="text" id="signup-username" name="username" required>
+                <label for="signup-password">كلمة المرور:</label>
+                <input type="password" id="signup-password" name="password" required>
+                <label for="signup-image">رفع صورة شخصية:</label>
+                <input type="file" id="signup-image" name="image" accept="image/*">
+                <label>
+                    <input type="checkbox" id="signup-terms" required> أوافق على شروط الموقع
+                </label>
+                <button type="button" onclick="signup()">إنشاء حساب</button>
+            </form>
+        </div>
+    </div>
+    <div id="main-container" style="display: none;">
+        <h1>مرحبا بك!</h1>
+        <button onclick="showMessages()">التواصل</button>
+        <button onclick="changePassword()">تعديل كلمة المرور</button>
+        <button onclick="deleteAccount()">حذف الحساب</button>
+    </div>
+    <script>
+        // Mock database and user data
+        const users = {}; // Simulate user data storage
+        let loginAttempts = {}; // Track login attempts
+        const maxAttempts = 10;
+        const lockoutDuration = 7 * 60 * 60 * 1000; // 7 hours
+        const retryDelay = 90 * 1000; // 90 seconds
+
+        function showSignupForm() {
+            document.getElementById('login-form').style.display = 'none';
+            document.getElementById('signup-form').style.display = 'block';
+        }
+
+        function signup() {
+            const firstname = document.getElementById('signup-firstname').value;
+            const lastname = document.getElementById('signup-lastname').value;
+            const username = document.getElementById('signup-username').value;
+            const password = document.getElementById('signup-password').value;
+            const terms = document.getElementById('signup-terms').checked;
+
+            if (!terms) {
+                alert('يجب الموافقة على شروط الموقع');
+                return;
+            }
+
+            if (users[username]) {
+                alert('اسم المستخدم موجود بالفعل');
+                return;
+            }
+
+            users[username] = { firstname, lastname, password, attempts: 0, lockoutTime: 0 };
+            alert('تم إنشاء الحساب بنجاح!');
+            document.getElementById('signup-form').style.display = 'none';
+            document.getElementById('login-form').style.display = 'block';
+        }
+
+        function login() {
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+            const user = users[username];
+
+            if (!user) {
+                alert('اسم المستخدم غير موجود');
+                return;
+            }
+
+            if (user.lockoutTime > Date.now()) {
+                alert('تم قفل الحساب، حاول لاحقًا');
+                return;
+            }
+
+            if (user.password === password) {
+                user.attempts = 0;
+                document.getElementById('login-container').style.display = 'none';
+                document.getElementById('main-container').style.display = 'block';
+            } else {
+                user.attempts = (user.attempts || 0) + 1;
+
+                if (user.attempts >= maxAttempts) {
+                    user.lockoutTime = Date.now() + lockoutDuration;
+                    alert('تم قفل الحساب بسبب محاولات تسجيل الدخول الفاشلة');
+                } else {
+                    alert('اسم المستخدم أو كلمة المرور غير صحيحة، حاول مرة أخرى');
+                    setTimeout(() => {
+                        alert('يمكنك محاولة تسجيل الدخول الآن');
+                    }, retryDelay);
+                }
+            }
+        }
+
+        function showMessages() {
+            alert('ستتم إضافة ميزة التواصل لاحقًا.');
+        }
+
+        function changePassword() {
+            alert('ستتم إضافة ميزة تعديل كلمة المرور لاحقًا.');
+        }
+
+        function deleteAccount() {
+            alert('ستتم إضافة ميزة حذف الحساب لاحقًا.');
+        }
+    </script>
+</body>
+</html>
