@@ -62,9 +62,9 @@
             <h2>تسجيل الدخول</h2>
             <form id="login-form-element">
                 <label for="login-username">اسم المستخدم:</label>
-                <input type="text" id="login-username" name="username" required>
+                <input type="text" id="login-username" required>
                 <label for="login-password">كلمة المرور:</label>
-                <input type="password" id="login-password" name="password" required>
+                <input type="password" id="login-password" required>
                 <button type="button" onclick="login()">تسجيل الدخول</button>
             </form>
             <p>ليس لديك حساب؟ <button onclick="showSignupForm()">إنشاء حساب</button></p>
@@ -73,9 +73,9 @@
             <h2>إنشاء حساب جديد</h2>
             <form id="signup-form-element">
                 <label for="signup-username">اسم المستخدم:</label>
-                <input type="text" id="signup-username" name="username" required>
+                <input type="text" id="signup-username" required>
                 <label for="signup-password">كلمة المرور:</label>
-                <input type="password" id="signup-password" name="password" required>
+                <input type="password" id="signup-password" required>
                 <label>
                     <input type="checkbox" id="signup-terms" required> أوافق على شروط الموقع
                 </label>
@@ -107,32 +107,40 @@
     </div>
 
     <script>
-        const users = {};
+        // استرجاع البيانات من Local Storage
+        const users = JSON.parse(localStorage.getItem('users')) || {};
+        const messages = JSON.parse(localStorage.getItem('messages')) || [];
         let currentUser;
-        const messages = []; // لتخزين الرسائل
 
         function showSignupForm() {
             document.getElementById('login-form').style.display = 'none';
             document.getElementById('signup-form').style.display = 'block';
         }
 
-        async function signup() {
+        function signup() {
             const username = document.getElementById('signup-username').value;
             const password = document.getElementById('signup-password').value;
+            const terms = document.getElementById('signup-terms').checked;
+
+            if (!terms) {
+                alert('يجب الموافقة على شروط الموقع');
+                return;
+            }
 
             if (users[username]) {
                 alert('اسم المستخدم موجود بالفعل');
                 return;
             }
 
-            const hashedPassword = await hashPassword(password);
+            const hashedPassword = btoa(password); // تشفير باستخدام Base64
             users[username] = { username, password: hashedPassword };
+            localStorage.setItem('users', JSON.stringify(users)); // حفظ البيانات في Local Storage
             alert('تم إنشاء الحساب بنجاح!');
             document.getElementById('signup-form').style.display = 'none';
             document.getElementById('login-form').style.display = 'block';
         }
 
-        async function login() {
+        function login() {
             const username = document.getElementById('login-username').value;
             const password = document.getElementById('login-password').value;
 
@@ -141,24 +149,14 @@
                 return;
             }
 
-            const isPasswordCorrect = await verifyPassword(password, users[username].password);
-            if (isPasswordCorrect) {
+            const hashedPassword = users[username].password;
+            if (hashedPassword === btoa(password)) { // التحقق باستخدام Base64
                 currentUser = users[username];
                 document.getElementById('login-container').style.display = 'none';
                 document.getElementById('main-container').style.display = 'block';
             } else {
                 alert('اسم المستخدم أو كلمة المرور غير صحيحة');
             }
-        }
-
-        async function hashPassword(password) {
-            // هذه دالة وهمية، استبدلها بطريقة التشفير الفعلي
-            return btoa(password); // تشفير باستخدام Base64
-        }
-
-        async function verifyPassword(password, hashedPassword) {
-            // هذه دالة وهمية، استبدلها بطريقة التحقق الفعلي
-            return btoa(password) === hashedPassword; // التحقق باستخدام Base64
         }
 
         function showMessages() {
@@ -171,10 +169,12 @@
             const messagesList = document.getElementById('messages-list');
             messagesList.innerHTML = '';
             messages.forEach(msg => {
-                const msgDiv = document.createElement('div');
-                msgDiv.classList.add('message');
-                msgDiv.textContent = `${msg.sender}: ${msg.content}`;
-                messagesList.appendChild(msgDiv);
+                if (msg.recipient === currentUser.username || msg.sender === currentUser.username || msg.publish_to_all) {
+                    const msgDiv = document.createElement('div');
+                    msgDiv.classList.add('message');
+                    msgDiv.textContent = `${msg.sender}: ${msg.content}`;
+                    messagesList.appendChild(msgDiv);
+                }
             });
         }
 
@@ -188,12 +188,14 @@
                 return;
             }
 
-            messages.push({
+            const message = {
                 sender: currentUser.username,
                 recipient: recipient,
                 content: content,
                 publish_to_all: publishToAll
-            });
+            };
+            messages.push(message);
+            localStorage.setItem('messages', JSON.stringify(messages)); // حفظ الرسائل في Local Storage
 
             alert('تم إرسال الرسالة!');
             displayMessages(); // تحديث عرض الرسائل
@@ -207,7 +209,8 @@
         function changePassword() {
             const newPassword = prompt('أدخل كلمة المرور الجديدة:');
             if (newPassword) {
-                currentUser.password = newPassword; // تحتاج إلى تشفير كلمة المرور الجديدة
+                users[currentUser.username].password = btoa(newPassword); // تشفير كلمة المرور الجديدة
+                localStorage.setItem('users', JSON.stringify(users)); // تحديث البيانات في Local Storage
                 alert('تم تغيير كلمة المرور بنجاح!');
             }
         }
@@ -215,6 +218,7 @@
         function deleteAccount() {
             if (confirm('هل أنت متأكد أنك تريد حذف حسابك؟')) {
                 delete users[currentUser.username];
+                localStorage.setItem('users', JSON.stringify(users)); // تحديث البيانات في Local Storage
                 alert('تم حذف الحساب بنجاح!');
                 document.getElementById('main-container').style.display = 'none';
                 document.getElementById('login-container').style.display = 'block';
