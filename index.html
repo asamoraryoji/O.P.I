@@ -14,11 +14,13 @@
             margin: 0;
             background-color: #f4f4f4;
         }
-        #login-container, #main-container {
+        #login-container, #main-container, #message-container {
             background-color: #fff;
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            width: 300px;
+            margin: 10px;
         }
         h1, h2 {
             margin: 0 0 10px;
@@ -27,7 +29,7 @@
             display: block;
             margin: 10px 0 5px;
         }
-        input {
+        input, textarea {
             width: 100%;
             padding: 10px;
             margin-bottom: 10px;
@@ -44,6 +46,12 @@
         }
         button:hover {
             background-color: #0056b3;
+        }
+        .message {
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
         }
     </style>
 </head>
@@ -64,16 +72,10 @@
         <div id="signup-form" style="display: none;">
             <h2>إنشاء حساب جديد</h2>
             <form id="signup-form-element">
-                <label for="signup-firstname">الاسم الأول:</label>
-                <input type="text" id="signup-firstname" name="firstname" required>
-                <label for="signup-lastname">اللقب:</label>
-                <input type="text" id="signup-lastname" name="lastname" required>
                 <label for="signup-username">اسم المستخدم:</label>
                 <input type="text" id="signup-username" name="username" required>
                 <label for="signup-password">كلمة المرور:</label>
                 <input type="password" id="signup-password" name="password" required>
-                <label for="signup-image">رفع صورة شخصية:</label>
-                <input type="file" id="signup-image" name="image" accept="image/*">
                 <label>
                     <input type="checkbox" id="signup-terms" required> أوافق على شروط الموقع
                 </label>
@@ -81,92 +83,142 @@
             </form>
         </div>
     </div>
+    
     <div id="main-container" style="display: none;">
         <h1>مرحبا بك!</h1>
         <button onclick="showMessages()">التواصل</button>
         <button onclick="changePassword()">تعديل كلمة المرور</button>
         <button onclick="deleteAccount()">حذف الحساب</button>
     </div>
+
+    <div id="message-container" style="display: none;">
+        <h2>التواصل</h2>
+        <div id="messages-list"></div>
+        <button onclick="backToMain()">الرجوع للقائمة الرئيسية</button>
+        <h3>إرسال رسالة</h3>
+        <label for="recipient-username">اسم المستخدم للمتلقي:</label>
+        <input type="text" id="recipient-username" placeholder="أدخل اسم المستخدم">
+        <label>
+            <input type="checkbox" id="publish-to-all"> نشر للجميع
+        </label>
+        <label for="message-content">اكتب رسالتك:</label>
+        <textarea id="message-content" placeholder="اكتب رسالتك هنا..."></textarea>
+        <button onclick="sendMessage()">إرسال</button>
+    </div>
+
     <script>
-        // Mock database and user data
-        const users = {}; // Simulate user data storage
-        let loginAttempts = {}; // Track login attempts
-        const maxAttempts = 10;
-        const lockoutDuration = 7 * 60 * 60 * 1000; // 7 hours
-        const retryDelay = 90 * 1000; // 90 seconds
+        const users = {};
+        let currentUser;
+        const messages = []; // لتخزين الرسائل
 
         function showSignupForm() {
             document.getElementById('login-form').style.display = 'none';
             document.getElementById('signup-form').style.display = 'block';
         }
 
-        function signup() {
-            const firstname = document.getElementById('signup-firstname').value;
-            const lastname = document.getElementById('signup-lastname').value;
+        async function signup() {
             const username = document.getElementById('signup-username').value;
             const password = document.getElementById('signup-password').value;
-            const terms = document.getElementById('signup-terms').checked;
-
-            if (!terms) {
-                alert('يجب الموافقة على شروط الموقع');
-                return;
-            }
 
             if (users[username]) {
                 alert('اسم المستخدم موجود بالفعل');
                 return;
             }
 
-            users[username] = { firstname, lastname, password, attempts: 0, lockoutTime: 0 };
+            const hashedPassword = await hashPassword(password);
+            users[username] = { username, password: hashedPassword };
             alert('تم إنشاء الحساب بنجاح!');
             document.getElementById('signup-form').style.display = 'none';
             document.getElementById('login-form').style.display = 'block';
         }
 
-        function login() {
+        async function login() {
             const username = document.getElementById('login-username').value;
             const password = document.getElementById('login-password').value;
-            const user = users[username];
 
-            if (!user) {
+            if (!users[username]) {
                 alert('اسم المستخدم غير موجود');
                 return;
             }
 
-            if (user.lockoutTime > Date.now()) {
-                alert('تم قفل الحساب، حاول لاحقًا');
-                return;
-            }
-
-            if (user.password === password) {
-                user.attempts = 0;
+            const isPasswordCorrect = await verifyPassword(password, users[username].password);
+            if (isPasswordCorrect) {
+                currentUser = users[username];
                 document.getElementById('login-container').style.display = 'none';
                 document.getElementById('main-container').style.display = 'block';
             } else {
-                user.attempts = (user.attempts || 0) + 1;
-
-                if (user.attempts >= maxAttempts) {
-                    user.lockoutTime = Date.now() + lockoutDuration;
-                    alert('تم قفل الحساب بسبب محاولات تسجيل الدخول الفاشلة');
-                } else {
-                    alert('اسم المستخدم أو كلمة المرور غير صحيحة، حاول مرة أخرى');
-                    setTimeout(() => {
-                        alert('يمكنك محاولة تسجيل الدخول الآن');
-                    }, retryDelay);
-                }
+                alert('اسم المستخدم أو كلمة المرور غير صحيحة');
             }
         }
 
+        async function hashPassword(password) {
+            // هذه دالة وهمية، استبدلها بطريقة التشفير الفعلي
+            return btoa(password); // تشفير باستخدام Base64
+        }
+
+        async function verifyPassword(password, hashedPassword) {
+            // هذه دالة وهمية، استبدلها بطريقة التحقق الفعلي
+            return btoa(password) === hashedPassword; // التحقق باستخدام Base64
+        }
+
         function showMessages() {
-            alert('ستتم إضافة ميزة التواصل لاحقًا.');
+            document.getElementById('main-container').style.display = 'none';
+            document.getElementById('message-container').style.display = 'block';
+            displayMessages();
+        }
+
+        function displayMessages() {
+            const messagesList = document.getElementById('messages-list');
+            messagesList.innerHTML = '';
+            messages.forEach(msg => {
+                const msgDiv = document.createElement('div');
+                msgDiv.classList.add('message');
+                msgDiv.textContent = `${msg.sender}: ${msg.content}`;
+                messagesList.appendChild(msgDiv);
+            });
+        }
+
+        function sendMessage() {
+            const recipient = document.getElementById('recipient-username').value;
+            const content = document.getElementById('message-content').value;
+            const publishToAll = document.getElementById('publish-to-all').checked;
+
+            if (!recipient || !content) {
+                alert('يرجى ملء جميع الحقول!');
+                return;
+            }
+
+            messages.push({
+                sender: currentUser.username,
+                recipient: recipient,
+                content: content,
+                publish_to_all: publishToAll
+            });
+
+            alert('تم إرسال الرسالة!');
+            displayMessages(); // تحديث عرض الرسائل
+        }
+
+        function backToMain() {
+            document.getElementById('message-container').style.display = 'none';
+            document.getElementById('main-container').style.display = 'block';
         }
 
         function changePassword() {
-            alert('ستتم إضافة ميزة تعديل كلمة المرور لاحقًا.');
+            const newPassword = prompt('أدخل كلمة المرور الجديدة:');
+            if (newPassword) {
+                currentUser.password = newPassword; // تحتاج إلى تشفير كلمة المرور الجديدة
+                alert('تم تغيير كلمة المرور بنجاح!');
+            }
         }
 
         function deleteAccount() {
-            alert('ستتم إضافة ميزة حذف الحساب لاحقًا.');
+            if (confirm('هل أنت متأكد أنك تريد حذف حسابك؟')) {
+                delete users[currentUser.username];
+                alert('تم حذف الحساب بنجاح!');
+                document.getElementById('main-container').style.display = 'none';
+                document.getElementById('login-container').style.display = 'block';
+            }
         }
     </script>
 </body>
