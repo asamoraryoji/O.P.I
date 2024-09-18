@@ -4,6 +4,148 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>تسجيل الدخول</title>
+    <script type="module">
+        // استيراد الدوال التي تحتاجها من Firebase SDK
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+        import { getDatabase, ref, set, push, onValue } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, updatePassword, deleteUser } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
+
+        // إعدادات تطبيق Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyBaWuF7dXhx9OgBLxpfG7IH3NOKR_nTaXQ",
+            authDomain: "o-p-i-database.firebaseapp.com",
+            databaseURL: "https://o-p-i-database-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "o-p-i-database",
+            storageBucket: "o-p-i-database.appspot.com",
+            messagingSenderId: "408211295109",
+            appId: "1:408211295109:web:b08ed4f8bfb01b2bc252ec"
+        };
+
+        // تهيئة Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth();
+        const database = getDatabase(app);
+
+        function showSignupForm() {
+            document.getElementById('login-form').style.display = 'none';
+            document.getElementById('signup-form').style.display = 'block';
+        }
+
+        function signup() {
+            const username = document.getElementById('signup-username').value;
+            const password = document.getElementById('signup-password').value;
+            const terms = document.getElementById('signup-terms').checked;
+
+            if (!terms) {
+                alert('يجب الموافقة على شروط الموقع');
+                return;
+            }
+
+            createUserWithEmailAndPassword(auth, username + "@example.com", password)
+                .then(() => {
+                    alert('تم إنشاء الحساب بنجاح!');
+                    document.getElementById('signup-form').style.display = 'none';
+                    document.getElementById('login-form').style.display = 'block';
+                })
+                .catch((error) => {
+                    alert(error.message);
+                });
+        }
+
+        function login() {
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+
+            signInWithEmailAndPassword(auth, username + "@example.com", password)
+                .then(() => {
+                    document.getElementById('login-container').style.display = 'none';
+                    document.getElementById('main-container').style.display = 'block';
+                    loadMessages();
+                })
+                .catch((error) => {
+                    alert(error.message);
+                });
+        }
+
+        function showMessages() {
+            document.getElementById('main-container').style.display = 'none';
+            document.getElementById('message-container').style.display = 'block';
+            loadMessages();
+        }
+
+        function loadMessages() {
+            const messagesRef = ref(database, 'messages');
+            onValue(messagesRef, (snapshot) => {
+                const messagesList = snapshot.val() || {};
+                document.getElementById('messages-list').innerHTML = '';
+                Object.values(messagesList).forEach(msg => {
+                    displayMessage(msg);
+                });
+            });
+        }
+
+        function displayMessage(msg) {
+            const messagesList = document.getElementById('messages-list');
+            const msgDiv = document.createElement('div');
+            msgDiv.classList.add('message');
+            msgDiv.textContent = `${msg.sender}: ${msg.content}`;
+            messagesList.appendChild(msgDiv);
+        }
+
+        function sendMessage() {
+            const recipient = document.getElementById('recipient-username').value;
+            const content = document.getElementById('message-content').value;
+            const publishToAll = document.getElementById('publish-to-all').checked;
+
+            if (!recipient || !content) {
+                alert('يرجى ملء جميع الحقول!');
+                return;
+            }
+
+            const message = {
+                sender: auth.currentUser.email.split('@')[0],
+                recipient: recipient,
+                content: content,
+                publish_to_all: publishToAll
+            };
+
+            const messagesRef = ref(database, 'messages');
+            push(messagesRef, message).then(() => {
+                alert('تم إرسال الرسالة!');
+                displayMessage(message);
+            }).catch((error) => {
+                alert(error.message);
+            });
+        }
+
+        function backToMain() {
+            document.getElementById('message-container').style.display = 'none';
+            document.getElementById('main-container').style.display = 'block';
+        }
+
+        function changePassword() {
+            const newPassword = prompt('أدخل كلمة المرور الجديدة:');
+            if (newPassword) {
+                updatePassword(auth.currentUser, newPassword).then(() => {
+                    alert('تم تغيير كلمة المرور بنجاح!');
+                }).catch((error) => {
+                    alert(error.message);
+                });
+            }
+        }
+
+        function deleteAccount() {
+            if (confirm('هل أنت متأكد أنك تريد حذف حسابك؟')) {
+                deleteUser(auth.currentUser).then(() => {
+                    alert('تم حذف الحساب بنجاح!');
+                    document.getElementById('main-container').style.display = 'none';
+                    document.getElementById('login-container').style.display = 'block';
+                }).catch((error) => {
+                    alert(error.message);
+                });
+            }
+        }
+    </script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -96,134 +238,14 @@
         <div id="messages-list"></div>
         <button onclick="backToMain()">الرجوع للقائمة الرئيسية</button>
         <h3>إرسال رسالة</h3>
-        <label for="recipient-username">اسم المستخدم للمتلقي:</label>
-        <input type="text" id="recipient-username" placeholder="أدخل اسم المستخدم">
+        <label for="recipient-username">اسم المستخدم الخاص بالمتلقي:</label>
+        <input type="text" id="recipient-username">
         <label>
             <input type="checkbox" id="publish-to-all"> نشر للجميع
         </label>
-        <label for="message-content">اكتب رسالتك:</label>
-        <textarea id="message-content" placeholder="اكتب رسالتك هنا..."></textarea>
+        <label for="message-content">نص الرسالة:</label>
+        <textarea id="message-content" rows="4"></textarea>
         <button onclick="sendMessage()">إرسال</button>
     </div>
-
-    <script>
-        // استرجاع البيانات من Local Storage
-        const users = JSON.parse(localStorage.getItem('users')) || {};
-        const messages = JSON.parse(localStorage.getItem('messages')) || [];
-        let currentUser;
-
-        function showSignupForm() {
-            document.getElementById('login-form').style.display = 'none';
-            document.getElementById('signup-form').style.display = 'block';
-        }
-
-        function signup() {
-            const username = document.getElementById('signup-username').value;
-            const password = document.getElementById('signup-password').value;
-            const terms = document.getElementById('signup-terms').checked;
-
-            if (!terms) {
-                alert('يجب الموافقة على شروط الموقع');
-                return;
-            }
-
-            if (users[username]) {
-                alert('اسم المستخدم موجود بالفعل');
-                return;
-            }
-
-            const hashedPassword = btoa(password); // تشفير باستخدام Base64
-            users[username] = { username, password: hashedPassword };
-            localStorage.setItem('users', JSON.stringify(users)); // حفظ البيانات في Local Storage
-            alert('تم إنشاء الحساب بنجاح!');
-            document.getElementById('signup-form').style.display = 'none';
-            document.getElementById('login-form').style.display = 'block';
-        }
-
-        function login() {
-            const username = document.getElementById('login-username').value;
-            const password = document.getElementById('login-password').value;
-
-            if (!users[username]) {
-                alert('اسم المستخدم غير موجود');
-                return;
-            }
-
-            const hashedPassword = users[username].password;
-            if (hashedPassword === btoa(password)) { // التحقق باستخدام Base64
-                currentUser = users[username];
-                document.getElementById('login-container').style.display = 'none';
-                document.getElementById('main-container').style.display = 'block';
-            } else {
-                alert('اسم المستخدم أو كلمة المرور غير صحيحة');
-            }
-        }
-
-        function showMessages() {
-            document.getElementById('main-container').style.display = 'none';
-            document.getElementById('message-container').style.display = 'block';
-            displayMessages();
-        }
-
-        function displayMessages() {
-            const messagesList = document.getElementById('messages-list');
-            messagesList.innerHTML = '';
-            messages.forEach(msg => {
-                if (msg.recipient === currentUser.username || msg.sender === currentUser.username || msg.publish_to_all) {
-                    const msgDiv = document.createElement('div');
-                    msgDiv.classList.add('message');
-                    msgDiv.textContent = `${msg.sender}: ${msg.content}`;
-                    messagesList.appendChild(msgDiv);
-                }
-            });
-        }
-
-        function sendMessage() {
-            const recipient = document.getElementById('recipient-username').value;
-            const content = document.getElementById('message-content').value;
-            const publishToAll = document.getElementById('publish-to-all').checked;
-
-            if (!recipient || !content) {
-                alert('يرجى ملء جميع الحقول!');
-                return;
-            }
-
-            const message = {
-                sender: currentUser.username,
-                recipient: recipient,
-                content: content,
-                publish_to_all: publishToAll
-            };
-            messages.push(message);
-            localStorage.setItem('messages', JSON.stringify(messages)); // حفظ الرسائل في Local Storage
-
-            alert('تم إرسال الرسالة!');
-            displayMessages(); // تحديث عرض الرسائل
-        }
-
-        function backToMain() {
-            document.getElementById('message-container').style.display = 'none';
-            document.getElementById('main-container').style.display = 'block';
-        }
-
-        function changePassword() {
-            const newPassword = prompt('أدخل كلمة المرور الجديدة:');
-            if (newPassword) {
-                users[currentUser.username].password = btoa(newPassword); // تشفير كلمة المرور الجديدة
-                localStorage.setItem('users', JSON.stringify(users)); // تحديث البيانات في Local Storage
-                alert('تم تغيير كلمة المرور بنجاح!');
-            }
-        }
-
-        function deleteAccount() {
-            if (confirm('هل أنت متأكد أنك تريد حذف حسابك؟')) {
-                delete users[currentUser.username];
-                localStorage.setItem('users', JSON.stringify(users)); // تحديث البيانات في Local Storage
-                alert('تم حذف الحساب بنجاح!');
-                document.getElementById('main-container').style.display = 'none';
-                document.getElementById('login-container').style.display = 'block';
-            }
-        }
-    </script>
 </body>
 </html>
